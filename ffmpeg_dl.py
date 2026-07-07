@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import sys
 import zipfile
 from pathlib import Path
 from urllib.request import urlopen
@@ -10,7 +11,8 @@ _FFMPEG_URL = (
     "https://www.gyan.dev/ffmpeg/builds/"
     "ffmpeg-release-essentials.zip"
 )
-_FFMPEG_EXE = Path(__file__).parent / "ffmpeg.exe"
+_APP_DIR = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).parent
+_FFMPEG_EXE = _APP_DIR / "ffmpeg.exe"
 
 
 def ffmpeg_path() -> Path | None:
@@ -19,10 +21,7 @@ def ffmpeg_path() -> Path | None:
 
 
 def download_ffmpeg(progress_cb=None) -> Path:
-    """Download ffmpeg.exe from gyan.dev.  Returns path to exe.
-
-    *progress_cb* is called with (downloaded_bytes, total_bytes) during download.
-    """
+    """Download ffmpeg.exe from gyan.dev.  Returns path to exe."""
     import sys as _sys
 
     print("Downloading FFmpeg (~55 MB) …", file=_sys.stderr)
