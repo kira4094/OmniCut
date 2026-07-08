@@ -108,6 +108,23 @@ def build_remap(
 
 ProgressCB = Optional[Callable[[int, int], None]]
 
+def _write_xmp(jpg_path: Path, focal_35mm: float, aspect_ratio: float) -> None:
+    """Write RealityScan XMP sidecar next to *jpg_path*."""
+    xmp = f'''<?xml version="1.0" encoding="UTF-8"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <rdf:Description xcr:Version="3"
+       xcr:DistortionModel="perspective" xcr:DistortionCoeficients="0 0 0 0 0 0"
+       xcr:FocalLength35mm="{focal_35mm:.6f}" xcr:Skew="0" xcr:AspectRatio="{aspect_ratio:.6f}"
+       xcr:PrincipalPointU="0" xcr:PrincipalPointV="0"
+       xcr:CalibrationPrior="exact" xcr:CalibrationGroup="-1" xcr:DistortionGroup="-1"
+       xcr:InTexturing="1" xcr:InMeshing="1"
+       xmlns:xcr="http://www.capturingreality.com/ns/xcr/1.1#"/>
+  </rdf:RDF>
+</x:xmpmeta>'''
+    jpg_path.with_suffix(".xmp").write_text(xmp, encoding="utf-8")
+
+
 def process_image(
     src: np.ndarray,
     eq_w: int, eq_h: int,
@@ -127,6 +144,9 @@ def process_image(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     fov_rad = np.radians(fov_deg)
+    # 35mm equivalent focal length (RealityScan XMP needs this)
+    focal_35mm = 18.0 / np.tan(fov_rad / 2.0)
+    aspect_ratio = out_res / out_res  # always square in our case
 
     # Precompute all remap maps (one per pose)
     maps = [build_remap(eq_w, eq_h, out_res, fov_rad, p["rotation"]) for p in poses]
@@ -138,6 +158,7 @@ def process_image(
         fname = f"{source_stem}_{idx:04d}.jpg"
         fpath = out_dir / fname
         cv2.imwrite(str(fpath), perspective, [cv2.IMWRITE_JPEG_QUALITY, quality])
+        _write_xmp(fpath, float(focal_35mm), float(aspect_ratio))
         paths.append(fpath)
         if progress_callback:
             progress_callback(idx + 1, n)
@@ -182,6 +203,9 @@ def process_batch(
     eq_h, eq_w = sample.shape[:2]
     maps = [build_remap(eq_w, eq_h, out_res, fov_rad, p["rotation"]) for p in poses]
 
+    focal_35mm = float(18.0 / np.tan(fov_rad / 2.0))
+    aspect_ratio = float(out_res / out_res)
+
     total = len(images) * len(poses)
     done = 0
     for fi, img_path in enumerate(images):
@@ -192,8 +216,9 @@ def process_batch(
         for ((mx, my), _) in zip(maps, poses):
             perspective = cv2.remap(src, mx, my, cv2.INTER_LINEAR)
             fname = f"{stem}_{done:04d}.jpg"
-            cv2.imwrite(str(output_dir / fname), perspective,
-                        [cv2.IMWRITE_JPEG_QUALITY, quality])
+            fpath = output_dir / fname
+            cv2.imwrite(str(fpath), perspective, [cv2.IMWRITE_JPEG_QUALITY, quality])
+            _write_xmp(fpath, focal_35mm, aspect_ratio)
             done += 1
             if progress_callback:
                 progress_callback(done, total)
