@@ -11,8 +11,10 @@ _FFMPEG_URL = (
     "https://www.gyan.dev/ffmpeg/builds/"
     "ffmpeg-release-essentials.zip"
 )
-_APP_DIR = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).parent
-_FFMPEG_EXE = _APP_DIR / "ffmpeg.exe"
+_APP_DIR = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+_DATA_DIR = _APP_DIR / "data"
+_DATA_DIR.mkdir(parents=True, exist_ok=True)
+_FFMPEG_EXE = _DATA_DIR / "ffmpeg.exe"
 
 
 def ffmpeg_path() -> Path | None:

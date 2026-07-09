@@ -8,3 +8,4 @@ output/
 Test/
 .claude/settings.local.json
 .claude/
+data/
